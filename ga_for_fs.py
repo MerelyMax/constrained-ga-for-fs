@@ -1,0 +1,365 @@
+#!/usr/bin/env python
+# import numpy as np
+# import pandas as pd
+# import sklearn
+from sklearn.model_selection import check_cv
+from sklearn.metrics import check_scoring
+from sklearn.model_selection._validation import _fit_and_score
+
+#  Подумать как реализовать автоматическое определение количества экстра признаков
+class GeneticAlgorithm(object):
+
+    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, indexes_prob=None, num_features_to_retain=None, verbose=False):
+        """Constructor"""
+        self.X = X  # Массив признаков
+        self.y = y  # Массив меток классов
+        self.estimator = estimator
+        self.scoring = scoring
+        self.cv = cv
+        self.n_population = n_population  # Количество индивидов в популяции
+        self.n_gen = n_gen  # Количество поколений
+        self.chromosomeLength = X.shape[1]  # Длина хромосомы
+        # Одноточечное, двухточечное или равномерное скрещивание
+        self.crossoverType = crossoverType
+        self.mutationProb = mutationProb  # Вероятность мутации
+        self.initType = initType  # Тип инициализации популяции
+        # Вероятности признаков по значимости, на которые указал фильтр
+        self.indexes_prob = indexes_prob
+        # Сколько в инициализации оставить признаков для очень больших выборок
+        self.num_features_to_retain = num_features_to_retain
+        self.verbose = verbose  # Для вывода подробной статистики
+
+    def createPopulation(self, n_population, chromosomeLength, initType, features_to_retain=None, indexes_prob=None):
+        "return matrix with population"
+
+        if (initType == 'coin'):
+            # биномиальное с возвращением (гипергеометрическое без возвращения)
+            population = np.random.binomial(
+                1, 0.5, size=chromosomeLength * n_population)
+            population = population.reshape(n_population, chromosomeLength)
+
+        if (initType == 'uniform'):
+            population = np.zeros((n_population, chromosomeLength))
+            chromosome_indexes = np.arange(chromosomeLength)
+
+            if (features_to_retain == None):
+                for k in range(n_population):
+                    # сэмплирование с повторением (имитация цикла для каждого признака) || Равномерное распр.
+                    samples = np.random.choice(chromosome_indexes,
+                                               chromosomeLength,
+                                               replace=True)
+                    genes = np.unique(samples)
+                    population[k] = np.isin(
+                        chromosome_indexes, genes, assume_unique=True)*1
+            else:
+                for k in range(n_population):
+                    # сэмплирование БЕЗ повторения || Равномерное распределение
+                    samples = np.random.choice(chromosome_indexes,
+                                               features_to_retain,
+                                               replace=False)
+                    genes = np.unique(samples)
+                    population[k] = np.isin(
+                        chromosome_indexes, genes, assume_unique=True)*1
+
+        if (initType == 'from_own_dist'):
+            population = np.zeros((n_population, chromosomeLength))
+            chromosome_indexes = np.arange(chromosomeLength)
+
+            # инициализация для маленьких выборок
+            if (features_to_retain == None):
+                for k in range(n_population):
+                    # сэмплирование с повторением (вернем точку обратно в корзину, разыграем вероятность заново)
+                    # с повторением - как бы имитация цикла по всем признакам, где на каждой итерации
+                    # по известнымм вероятностям выбирается ОДИН признак. Каждый новый запуск - тоже самое
+                    # что положить в корзину обратно и выбирать заново
+                    samples = np.random.choice(chromosome_indexes,
+                                               chromosomeLength,
+                                               p=indexes_prob)
+                    genes = np.unique(samples)
+                    # isin создает маску - True если объект содержится в массиве
+                    # *1 - умножение на 1 для конвертации True/False в 0,1
+                    population[k] = np.isin(
+                        chromosome_indexes, genes, assume_unique=True)*1
+            else:  # инициализация для LSVT и других выборок где features>150
+                two_thirds = int(features_to_retain*(2/3))
+                for k in range(n_population):
+                    counter = 0
+                    two_thirds_indexes = []
+                    # до тех пор, пока ReliefF признаков не будет 2/3
+                    while counter != two_thirds:
+                        # сэмплирование БЕЗ повторения
+                        samples = np.random.choice(chromosome_indexes,
+                                                   features_to_retain,
+                                                   p=indexes_prob,
+                                                   replace=False)
+                        # unique_samples = np.unique(samples)
+                        # считаем количество ReliefF признаков в полученном сэмпле
+                        for i in range(samples.shape[0]):
+                            check = any(item == samples[i]
+                                        for item in indexes_prob)
+                            # second condition: avoid two_thirds_indexes bigger than two_thirds
+                            if (check == True) and (np.shape(two_thirds_indexes)[0] < two_thirds):
+                                two_thirds_indexes.append(samples[i])
+                                counter += 1
+
+                    # setdiff1d - уберем индексы two_thirds_indexes из unique_samples
+                    # разыграем эксперимент (равномерное распределение) среди оставшихся
+                    # не могу сэмплировать с повторениями, тк ниже samples мб меньше, чем
+                    rest_indexes = np.random.choice(np.setdiff1d(samples, two_thirds_indexes),
+                                                    (features_to_retain -
+                                                     two_thirds),
+                                                    replace=False)
+                    genes = np.concatenate((rest_indexes, two_thirds_indexes))
+                    # isin создает маску - True если объект содержится в массиве
+                    # *1 - умножение на 1 для конвертации True/False в 0, 1
+                    population[k] = np.isin(
+                        chromosome_indexes, genes, assume_unique=True)*1
+
+        # необходимо 8 раз выбрать признак с одинаковой вероятностью по отношению к остальным
+        # Принцип рулетки, где для каждого признака отведен сектор не отличающийся от остальных
+        if (initType == 'Roulette'):
+            population = np.zeros((n_population, chromosomeLength))
+            for k in range(n_population):
+                # для каждого индивида:
+                for j in range(4):  # отберем равновероятно 8 признаков
+                    # отбор для исходных признаков
+                    prob = np.random.random() * 100
+                    for i in range(chromosomeLength-4):
+                        prob = prob - ((1/(chromosomeLength-4)) * 100)
+                        if (prob < 0 and population[k][i] == 0):
+                            population[k][i] = 1
+                            break
+                    # отбор PCA
+                for j in range(4):
+                    prob = np.random.random() * 100
+                    for m in range(chromosomeLength-4, chromosomeLength):
+                        prob = prob - ((1/4) * 100)
+                        if (prob < 0 and population[k][m] == 0):
+                            population[k][m] = 1
+                            break
+        return population
+
+    def selectionTNT(self, tntSize, n_population, fitnessValues):
+        "return pair of parent indexes"
+        # сгенерируем Т случайных индексов без повторений
+        indexes = np.random.choice(
+            range(n_population), size=tntSize, replace=False)
+        # выберем в качестве первого родителя лучшего из индивидов с заданными индексами
+        parent1index = indexes[np.argmax(fitnessValues[indexes])]
+        # повторим для 2го родителя
+        indexes = np.random.choice(
+            range(n_population), size=tntSize, replace=False)
+        parent2index = indexes[np.argmax(fitnessValues[indexes])]
+        return parent1index, parent2index
+
+    def crossover(self, parent1, parent2, population, chromosomeLength, crossoverType):
+        if (crossoverType == 'OnePoint'):
+            # выберем случайную точку разрыва
+            xpoint = np.random.randint(1, chromosomeLength)
+            # перемешаем гены. Т.к. возможно 2 варианата потомка, оставим только одного без сравнения их пригодности (случайно)
+            offspring = np.zeros(chromosomeLength)
+            offspring[0:xpoint] = population[parent1, 0:xpoint]
+            offspring[xpoint:] = population[parent2, xpoint:]
+        if (crossoverType == 'TwoPoints'):
+            # выберем две случайных точки разрыва без повторений
+            rng = np.random.default_rng()
+            points = rng.choice(chromosomeLength, size=2, replace=False)
+            points.sort()
+            offspring = np.zeros(chromosomeLength)
+            offspring[0:points[0]] = population[parent1, 0:points[0]]
+            offspring[points[0]:points[1]
+                      ] = population[parent2, points[0]:points[1]]
+            offspring[points[1]:] = population[parent1, points[1]:]
+        if (crossoverType == 'Uniform'):
+            offspring = np.zeros(chromosomeLength)
+            for i in range(chromosomeLength):
+                # np.random.random() генерирует число от 0 до 1
+                if (np.random.random() < 0.5):
+                    offspring[i] = population[parent1, i]
+                else:
+                    offspring[i] = population[parent2, i]
+
+        return offspring
+
+    def mutationPoint(self, individual, mutationProba):
+        n = len(individual)
+        for i in range(n):
+            if (np.random.random() <= mutationProba):
+                individual[i] = np.abs(individual[i]-1)
+        return individual
+
+    def fitness(self, X, y, estimator, scoring, cv, individual, epoch, verbose):
+        cv = check_cv(cv, y)
+
+        # сделаем разбиение для каждого индивида одинаковым, чтобы
+        # сравнивать точность классификатора при одинаковых условиях (выборках)
+        cv.random_state = 42
+        cv.shuffle = False
+        scorer = check_scoring(estimator, scoring=scoring)
+        rows = X.shape[0]
+        indexes = np.arange(X.shape[0])
+
+        individual_sum = np.sum(individual, axis=0)
+        if individual_sum == 0:
+            scores_mean = -10000
+        else:
+            # Здесь выбираются признаки по маске
+            X_selected = X[:, np.array(individual, dtype=bool)]
+            scores = []
+            # evaluation of the model
+            # to guarantee there will no be overfitting one uses CV
+            for train, test in cv.split(X, y):
+                score = _fit_and_score(estimator=estimator, X=X_selected, y=y, scorer=scorer,
+                                       train=train, test=test, verbose=0, parameters=None,
+                                       fit_params=None)
+                # simplefilter(action='ignore', category=FutureWarning)
+                scores.append(score)
+            scores_mean = score['test_scores'] * 100
+
+        # ПОПРАВКА НА КОЛИЧЕСТВО ДОПОЛНИТЕЛЬНЫХ ПРИЗНАКОВ - 16
+        extraFeatures = sum(individual[len(individual)-16:])
+        # Количество остальных признаков
+        originalFeatures = sum(individual[:len(individual)-16])
+
+
+        # наложить штраф на scores_mean по правилу:
+        phi1 = max(0, (2-extraFeatures))
+        phi2 = max(0, (extraFeatures-4))
+        phi3 = max(0, (2-originalFeatures))
+        phi4 = max(0, (originalFeatures-4))
+
+        phi = [phi1, phi2, phi3, phi4]
+
+        # динамический
+        # penalty = dynamic_penalty(len(individual))
+        # fitnessValue = scores_mean * 100 - penalty
+
+        # Для детального анализа работы
+        if (verbose == True):
+            print("Epoch = ", epoch)
+            print("Individual: ", individual)
+            print("All features (sum) = ", individual_sum)
+            # print("Constructed features = ", extraFeatures)
+            # print("Original features = ", originalFeatures)
+            print("phi1 = %i, phi2 = %i, phi3 = %i, phi4 = %i:" %
+                  (phi1, phi2, phi3, phi4))
+            print("Objective function value = ", scores_mean)
+            print('')
+
+        return scores_mean, phi
+
+    def AdaptivePenalty(self, objective_func, violations):
+        fitnessFunction = np.zeros([len(objective_func), 1])
+        penalties_mas = np.zeros([len(objective_func), 1])
+
+        avg_objective_func = objective_func.mean()
+        avg_phi = [violations['phi1'].mean(), violations['phi2'].mean(),
+                   violations['phi3'].mean(), violations['phi4'].mean()]
+        constraints_sum = avg_phi[0] ** 2 + \
+            avg_phi[1] ** 2 + avg_phi[2] ** 2 + avg_phi[3] ** 2
+        for i in range(len(objective_func)):
+            if ((violations.iloc[i]['phi1'] == 0) and (violations.iloc[i]['phi2'] == 0) and (violations.iloc[i]['phi3'] == 0) and (violations.iloc[i]['phi4'] == 0)):
+                fitnessFunction[i] = objective_func[i]
+                penalties_mas[i] = 0
+            else:
+                if (fitnessFunction[i] < avg_objective_func):
+                    fitnessFunction[i] = avg_objective_func
+                penalty = 0
+                for j in range(len(avg_phi)):
+                    k = (abs(avg_objective_func) * avg_phi[j]) / constraints_sum
+                    penalty += k * violations.iloc[i, j]
+                fitnessFunction[i] = fitnessFunction[i] - penalty
+                # Сохраним штраф для вывода
+                penalties_mas[i] = penalty
+        return fitnessFunction, penalties_mas
+
+    def runOneGeneration(self, population, chromosomeLength, n_population, fitnessValues, crossoverType, mutationProb):
+        # newPopulation = np.empty([chromosomeLength, 1])
+        newPopulation = np.zeros((n_population, chromosomeLength))
+        # newPopulation = []
+        for ind in range(n_population):
+            # селекция
+            parents = self.selectionTNT(2, n_population, fitnessValues)
+            # скрещивание
+            offspring = self.crossover(
+                parents[0], parents[1], population, chromosomeLength, crossoverType)
+            # мутация
+            offspring = self.mutationPoint(offspring, mutationProb)
+            # добавляем потомка в новую популяцию
+            newPopulation[ind] = offspring
+        return newPopulation
+
+    def startGA(self):
+        HallOfFame = []
+        results = []
+        ind_sum = []
+        phi_mas = []
+        statistics = []
+        indexes_mask = []
+        # Инициализация популяции
+        population = self.createPopulation(self.n_population,
+                                           self.chromosomeLength,
+                                           self.initType,
+                                           self.num_features_to_retain)
+        for currentGeneration in range(self.n_gen):
+            phi = pd.DataFrame(columns=['phi1', 'phi2', 'phi3', 'phi4'])
+            popObjectives = np.zeros([self.n_population, 1])
+            # Расчет целевой функции каждого индивида
+            for ind in range(self.n_population):
+                ind_fitness = self.fitness(X=self.X,
+                                           y=self.y,
+                                           estimator=self.estimator,
+                                           scoring=self.scoring,
+                                           cv=self.cv,
+                                           individual=population[ind],
+                                           epoch=currentGeneration,
+                                           verbose=self.verbose)
+
+                popObjectives[ind] = ind_fitness[0]
+                phi.loc[ind] = ind_fitness[1]
+            # Накладываем АДАПТИВНЫЙ штраф - итоговая оценка пригодности
+            popFitnesses = np.zeros([self.n_population, 1])
+            penalties = np.zeros([self.n_population, 1])
+            result = self.AdaptivePenalty(popObjectives, phi)
+            popFitnesses = result[0]
+            penalties = result[1]
+            if (self.verbose == True):
+                print('----------------------------------------------')
+                print('Лучшая пригодность (с учетом штрафа) для %i популяции = %f' %
+                      (currentGeneration, popFitnesses.max()))
+                print('Размер штрафа лучшей пригодности = ',
+                      penalties[popFitnesses.argmax()])
+                print('Число отобранных признаков',
+                      population[popFitnesses.argmax()].sum())
+                print('----------------------------------------------')
+                print('')
+
+            # Запомним лучшего индивида с УЧЕТОМ ДОПУСТИМОСТИ + его пригодность + его штраф
+            feasible_solution = []
+            feasible_fit = []
+            for i in range(self.n_population):
+                if ((phi.iloc[i]['phi1'] == 0) and (phi.iloc[i]['phi2'] == 0) and (phi.iloc[i]['phi3'] == 0) and (phi.iloc[i]['phi4'] == 0)):
+                    feasible_solution.append([population[i],
+                                              penalties[i]])
+                    feasible_fit.append(popFitnesses[i])
+
+            if (len(feasible_solution) != 0):
+                results.append(np.max(feasible_fit))
+                indexes_mask.append(
+                    np.array(feasible_solution[np.argmax(feasible_fit)][0]) > 0)
+                ind_sum.append(
+                    sum(feasible_solution[np.argmax(feasible_fit)][0]))
+
+            # замещаем старую популяцию новой
+            population = self.runOneGeneration(population, self.chromosomeLength, self.n_population, popFitnesses,
+                                               self.crossoverType, self.mutationProb)
+        if (len(results) == 0):
+            print('There is no solution satisfying conditions')
+            results.append(0)
+            return []
+        else:
+            # Вывод: Лучшее значение пригодности || Количество лучших признаков
+            print(
+                f'Best {self.scoring} score: {np.max(results)/100} || Final number of features: {ind_sum[np.argmax(results)]}')
+            # Лучшее значение пригодности || Индексы лучших признаков
+            return np.max(results)/100, np.arange(np.shape(self.X)[1])[indexes_mask[np.argmax(results)]]
