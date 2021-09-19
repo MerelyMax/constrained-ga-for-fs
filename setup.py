@@ -7,7 +7,7 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="constrained-ga-for-fs",
-    version="0.0.1",
+    version="0.0.2",
     author="Maksim Denisov",
     author_email="denisov.maksim.work@gmail.com",
     description="A Python library for feature selection using constrained genetic algorithm. Created for study purposes.",
