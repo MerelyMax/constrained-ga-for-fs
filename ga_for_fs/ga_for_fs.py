@@ -9,7 +9,58 @@ from sklearn.model_selection._validation import _fit_and_score
 class GeneticAlgorithm(object):
 
     def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, indexes_prob=None, num_features_to_retain=None, verbose=False):
-        """Constructor"""
+        """
+        Genetic Algorithm for feature selection.
+
+        Parameters
+        ----------
+        X : numpy array
+            Features - can be original set of features or constructed 
+            (as a part of feature engineering process).
+        y : numpy array
+            Targets:
+            -   Regression: dependent variable values, 
+            -   Classification: labels.
+        estimator : Scikit-learn estimator instance for regression or classification.
+        scoring : string
+            Any available scoring instance for scikit-learn estimator 
+            (full list:https://scikit-learn.org/stable/modules/model_evaluation.html#the-scoring-parameter-defining-model-evaluation-rules).
+        cv : int
+            Number of folds for kFold cross validation (stratified for classification).
+        n_population : int
+            Number of individuals in a population of genetic algorithm.
+        n_gen : int
+            Number of generations of genetic algorithm.
+        crossoverType : string
+            Crossover type of genetic algorithm. Available options: 
+            -   One point: "OnePoint", 
+            -   Two point: "TwoPoints",
+            -   Uniform: "Uniform".
+        mutationProb : float
+            Mutation probability for genetic algorithm.
+            Usual practice is to set the value to: 1/n_features
+        initType: string
+            Initialization type of genetic algorithm. Available options:
+            ??? "coin"
+            -   "uniform" 
+            -   "from_own_dist"
+        indexes_prob : float, available if initType="from_own_dist", defaul=None
+        num_features_to_retain : int, default=None
+            Should be used for datasets with large number of features (>30)
+            to ensure convergence (the ability of the algorithm to find a solution
+            under constraints).
+        verbose : bool, default=False
+            Set this variable to True to see details concerning each
+            individual (penalty, fitness function, etc) for each epoch.
+
+        Returns
+        -------
+        best_fitness : int
+            Individual best fitness value found under constraints
+        best_indexes : numpy array
+            Indexes (chosen features) of the individual with 
+            the best fitness value found under constraints
+        """
         self.X = X  # Массив признаков
         self.y = y  # Массив меток классов
         self.estimator = estimator
@@ -113,29 +164,6 @@ class GeneticAlgorithm(object):
                     # *1 - умножение на 1 для конвертации True/False в 0, 1
                     population[k] = np.isin(
                         chromosome_indexes, genes, assume_unique=True)*1
-
-        # необходимо 8 раз выбрать признак с одинаковой вероятностью по отношению к остальным
-        # Принцип рулетки, где для каждого признака отведен сектор не отличающийся от остальных
-        if (initType == 'Roulette'):
-            population = np.zeros((n_population, chromosomeLength))
-            for k in range(n_population):
-                # для каждого индивида:
-                for j in range(4):  # отберем равновероятно 8 признаков
-                    # отбор для исходных признаков
-                    prob = np.random.random() * 100
-                    for i in range(chromosomeLength-4):
-                        prob = prob - ((1/(chromosomeLength-4)) * 100)
-                        if (prob < 0 and population[k][i] == 0):
-                            population[k][i] = 1
-                            break
-                    # отбор PCA
-                for j in range(4):
-                    prob = np.random.random() * 100
-                    for m in range(chromosomeLength-4, chromosomeLength):
-                        prob = prob - ((1/4) * 100)
-                        if (prob < 0 and population[k][m] == 0):
-                            population[k][m] = 1
-                            break
         return population
 
     def selectionTNT(self, tntSize, n_population, fitnessValues):
