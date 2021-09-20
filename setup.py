@@ -1,4 +1,5 @@
 import setuptools
+import versioneer
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -7,7 +8,8 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="constrained-ga-for-fs",
-    version="0.0.3",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author="Maksim Denisov",
     author_email="denisov.maksim.work@gmail.com",
     description="A Python library for feature selection using constrained genetic algorithm. Created for study purposes.",

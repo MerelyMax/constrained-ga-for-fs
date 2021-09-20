@@ -1,2 +1,7 @@
+include README.rst
+include LICENSE
+include requirements.txt
+graft ga_for_fs
+recursive-exclude * *.py[co]
 include versioneer.py
 include ga_for_fs/_version.py
