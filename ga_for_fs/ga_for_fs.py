@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.model_selection import check_cv
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
-
+#
 #  Подумать как реализовать автоматическое определение количества экстра признаков
 class GeneticAlgorithm(object):
 
