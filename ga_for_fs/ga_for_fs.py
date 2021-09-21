@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.model_selection import check_cv
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
-#
+
 #  Подумать как реализовать автоматическое определение количества экстра признаков
 class GeneticAlgorithm(object):
 
@@ -17,38 +17,50 @@ class GeneticAlgorithm(object):
         X : numpy array
             Features - can be original set of features or constructed 
             (as a part of feature engineering process).
+
         y : numpy array
             Targets:
             -   Regression: dependent variable values, 
             -   Classification: labels.
+
         estimator : Scikit-learn estimator instance for regression or classification.
+
         scoring : string
             Any available scoring instance for scikit-learn estimator 
             (full list:https://scikit-learn.org/stable/modules/model_evaluation.html#the-scoring-parameter-defining-model-evaluation-rules).
+
         cv : int
             Number of folds for kFold cross validation (stratified for classification).
+
         n_population : int
             Number of individuals in a population of genetic algorithm.
+
         n_gen : int
             Number of generations of genetic algorithm.
+
         crossoverType : string
             Crossover type of genetic algorithm. Available options: 
             -   One point: "OnePoint", 
             -   Two point: "TwoPoints",
             -   Uniform: "Uniform".
+
         mutationProb : float
-            Mutation probability for genetic algorithm.
-            Usual practice is to set the value to: 1/n_features
+            Mutation probability for genetic algorithm. Usual
+            practice is to set the value to: 1/n_features.
+
         initType: string
             Initialization type of genetic algorithm. Available options:
-            ??? "coin"
-            -   "uniform" 
-            -   "from_own_dist"
-        indexes_prob : float, available if initType="from_own_dist", defaul=None
+            ??? "coin",
+            -   "uniform", 
+            -   "from_own_dist".
+
+        indexes_prob : float, available if initType="from_own_dist", defaul=None.
+
         num_features_to_retain : int, default=None
             Should be used for datasets with large number of features (>30)
             to ensure convergence (the ability of the algorithm to find a solution
             under constraints).
+            
         verbose : bool, default=False
             Set this variable to True to see details concerning each
             individual (penalty, fitness function, etc) for each epoch.
