@@ -69,7 +69,7 @@ class GeneticAlgorithm(object):
         -------
         best_fitness : int
             Individual best fitness value found under constraints
-            
+
         best_indexes : numpy array
             Indexes (chosen features) of the individual with 
             the best fitness value found under constraints
@@ -278,9 +278,7 @@ class GeneticAlgorithm(object):
         if (verbose == True):
             print("Epoch = ", epoch)
             print("Individual: ", individual)
-            print("All features (sum) = ", individual_sum)
-            # print("Constructed features = ", extraFeatures)
-            # print("Original features = ", originalFeatures)
+            print(f"All features (sum) {individual_sum} = constructed ({extraFeatures}) + original ({originalFeatures})")
             print("phi1 = %i, phi2 = %i, phi3 = %i, phi4 = %i:" %
                   (phi1, phi2, phi3, phi4))
             print("Objective function value = ", scores_mean)
@@ -364,14 +362,11 @@ class GeneticAlgorithm(object):
             popFitnesses = result[0]
             penalties = result[1]
             if (self.verbose == True):
-                print('----------------------------------------------')
-                print('Лучшая пригодность (с учетом штрафа) для %i популяции = %f' %
-                      (currentGeneration, popFitnesses.max()))
-                print('Размер штрафа лучшей пригодности = ',
-                      penalties[popFitnesses.argmax()])
-                print('Число отобранных признаков',
-                      population[popFitnesses.argmax()].sum())
-                print('----------------------------------------------')
+                print('-'*60)
+                print(f'Best fitness value (with constraint) for {currentGeneration} population = {popFitnesses.max()}')
+                print(f'Penalty value for best fitness = {penalties[popFitnesses.argmax()]}')
+                print(f'Number of selected features = {population[popFitnesses.argmax()].sum()}')
+                print('-'*60)
                 print('')
 
             # Запомним лучшего индивида с УЧЕТОМ ДОПУСТИМОСТИ + его пригодность + его штраф
