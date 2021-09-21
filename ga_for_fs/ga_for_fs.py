@@ -60,7 +60,7 @@ class GeneticAlgorithm(object):
             Should be used for datasets with large number of features (>30)
             to ensure convergence (the ability of the algorithm to find a solution
             under constraints).
-            
+
         verbose : bool, default=False
             Set this variable to True to see details concerning each
             individual (penalty, fitness function, etc) for each epoch.
@@ -69,6 +69,7 @@ class GeneticAlgorithm(object):
         -------
         best_fitness : int
             Individual best fitness value found under constraints
+            
         best_indexes : numpy array
             Indexes (chosen features) of the individual with 
             the best fitness value found under constraints
