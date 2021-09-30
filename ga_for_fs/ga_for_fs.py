@@ -63,15 +63,6 @@ class GeneticAlgorithm(object):
         verbose : bool, default=False
             Set this variable to True to see details concerning each
             individual (penalty, fitness function, etc) for each epoch.
-
-        Returns
-        -------
-        best_fitness : int
-            Individual best fitness value found under constraints
-
-        best_indexes : numpy array
-            Indexes (chosen features) of the individual with 
-            the best fitness value found under constraints
         """
         self.X = X  # Массив признаков
         self.y = y  # Массив меток классов
@@ -327,6 +318,16 @@ class GeneticAlgorithm(object):
         return newPopulation
 
     def startGA(self):
+        """
+        Returns
+        -------
+        best_fitness : int
+            Individual best fitness value found under constraints
+
+        best_indexes : numpy array
+            Indexes (chosen features) of the individual with 
+            the best fitness value found under constraints
+        """
         HallOfFame = []
         results = []
         ind_sum = []
