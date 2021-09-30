@@ -8,7 +8,7 @@ from sklearn.model_selection._validation import _fit_and_score
 #  Подумать как реализовать автоматическое определение количества экстра признаков
 class GeneticAlgorithm(object):
 
-    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, indexes_prob=None, num_features_to_retain=None, verbose=False):
+    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, indexes_prob=None, num_features_to_init=None, verbose=False):
         """
         Genetic Algorithm for feature selection.
 
@@ -45,8 +45,7 @@ class GeneticAlgorithm(object):
             -   Uniform: "Uniform".
 
         mutationProb : float
-            Mutation probability for genetic algorithm. Usual
-            practice is to set the value to: 1/n_features.
+            Mutation probability for genetic algorithm. Usual practice is to set the value to: 1/n_features.
 
         initType: string
             Initialization type of genetic algorithm. Available options:
@@ -56,7 +55,7 @@ class GeneticAlgorithm(object):
 
         indexes_prob : float, available if initType="from_own_dist", defaul=None.
 
-        num_features_to_retain : int, default=None
+        num_features_to_init : int, default=None
             Should be used for datasets with large number of features (>30)
             to ensure convergence (the ability of the algorithm to find a solution
             under constraints).
@@ -89,7 +88,7 @@ class GeneticAlgorithm(object):
         # Вероятности признаков по значимости, на которые указал фильтр
         self.indexes_prob = indexes_prob
         # Сколько в инициализации оставить признаков для очень больших выборок
-        self.num_features_to_retain = num_features_to_retain
+        self.num_features_to_init = num_features_to_init
         self.verbose = verbose  # Для вывода подробной статистики
 
     def createPopulation(self, n_population, chromosomeLength, initType, features_to_retain=None, indexes_prob=None):
@@ -338,7 +337,7 @@ class GeneticAlgorithm(object):
         population = self.createPopulation(self.n_population,
                                            self.chromosomeLength,
                                            self.initType,
-                                           self.num_features_to_retain)
+                                           self.num_features_to_init)
         for currentGeneration in range(self.n_gen):
             phi = pd.DataFrame(columns=['phi1', 'phi2', 'phi3', 'phi4'])
             popObjectives = np.zeros([self.n_population, 1])
@@ -391,7 +390,7 @@ class GeneticAlgorithm(object):
         if (len(results) == 0):
             print('There is no solution satisfying conditions')
             results.append(0)
-            return []
+            return [], []
         else:
             # Вывод: Лучшее значение пригодности || Количество лучших признаков
             print(
