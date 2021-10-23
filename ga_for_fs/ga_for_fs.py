@@ -8,7 +8,7 @@ from sklearn.model_selection._validation import _fit_and_score
 #  Подумать как реализовать автоматическое определение количества экстра признаков
 class GeneticAlgorithm(object):
 
-    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, indexes_prob=None, num_features_to_init=None, verbose=False):
+    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, extraFeatures_num, num_features_to_init=None, indexes_prob=None, verbose=False):
         """
         Genetic Algorithm for feature selection.
 
@@ -55,14 +55,19 @@ class GeneticAlgorithm(object):
 
         indexes_prob : float, available if initType="from_own_dist", defaul=None.
 
+        extraFeatures_num : int
+            Number of additional (extra) features. Such might be extracted
+            features (PCA, kernel PCA, Autoencoder, etc.) which were added to the 
+            original features set. Two of four constraints of the algorithm
+            will make search withing these features.
+
         num_features_to_init : int, default=None
             Should be used for datasets with large number of features (>30)
             to ensure convergence (the ability of the algorithm to find a solution
             under constraints).
 
         verbose : bool, default=False
-            Set this variable to True to see details concerning each
-            individual (penalty, fitness function, etc) for each epoch.
+            Regulates verbosity of the algorithm (penalty, fitness function, etc) for each epoch.
         """
         self.X = X  # Массив признаков
         self.y = y  # Массив меток классов
@@ -76,10 +81,11 @@ class GeneticAlgorithm(object):
         self.crossoverType = crossoverType
         self.mutationProb = mutationProb  # Вероятность мутации
         self.initType = initType  # Тип инициализации популяции
-        # Вероятности признаков по значимости, на которые указал фильтр
-        self.indexes_prob = indexes_prob
+        self.extraFeatures_num = extraFeatures_num #Additional (constructed) features number
         # Сколько в инициализации оставить признаков для очень больших выборок
         self.num_features_to_init = num_features_to_init
+        # Вероятности признаков по значимости, на которые указал фильтр
+        self.indexes_prob = indexes_prob
         self.verbose = verbose  # Для вывода подробной статистики
 
     def createPopulation(self, n_population, chromosomeLength, initType, features_to_retain=None, indexes_prob=None):
@@ -218,7 +224,7 @@ class GeneticAlgorithm(object):
                 individual[i] = np.abs(individual[i]-1)
         return individual
 
-    def fitness(self, X, y, estimator, scoring, cv, individual, epoch, verbose):
+    def fitness(self, X, y, estimator, scoring, cv, individual, epoch, extraFeatures_num, verbose):
         cv = check_cv(cv, y)
 
         # сделаем разбиение для каждого индивида одинаковым, чтобы
@@ -246,11 +252,10 @@ class GeneticAlgorithm(object):
                 scores.append(score)
             scores_mean = score['test_scores'] * 100
 
-        # ПОПРАВКА НА КОЛИЧЕСТВО ДОПОЛНИТЕЛЬНЫХ ПРИЗНАКОВ - 16
-        extraFeatures = sum(individual[len(individual)-16:])
-        # Количество остальных признаков
-        originalFeatures = sum(individual[:len(individual)-16])
-
+        # Calculates extra features number in the individdual
+        extraFeatures = sum(individual[len(individual)-extraFeatures_num:])
+        # Calculates initial (original) features number in the individual
+        originalFeatures = sum(individual[:len(individual)-extraFeatures_num])
 
         # наложить штраф на scores_mean по правилу:
         phi1 = max(0, (2-extraFeatures))
@@ -351,6 +356,7 @@ class GeneticAlgorithm(object):
                                            cv=self.cv,
                                            individual=population[ind],
                                            epoch=currentGeneration,
+                                           extraFeatures_num=self.extraFeatures_num,
                                            verbose=self.verbose)
 
                 popObjectives[ind] = ind_fitness[0]
