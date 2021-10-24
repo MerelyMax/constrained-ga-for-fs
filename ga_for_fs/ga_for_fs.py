@@ -363,7 +363,7 @@ class GeneticAlgorithm(object):
             # Calculation objective for every individual
             for ind in range(self.n_population):
                 # scores_mean || phi || model.best_params_
-                popObjectives[ind], phi.loc[ind], best_params= self.fitness(X=self.X,
+                popObjectives[ind], phi.loc[ind], best_params_ind = self.fitness(X=self.X,
                                                                 y=self.y,
                                                                 estimator=self.estimator,
                                                                 scoring=self.scoring,
@@ -372,7 +372,7 @@ class GeneticAlgorithm(object):
                                                                 epoch=currentGeneration,
                                                                 extraFeatures_num=self.extraFeatures_num,
                                                                 verbose=self.verbose)
-                best_params_population.append(best_params)
+                best_params_population.append(best_params_ind)
 
                 # popObjectives[ind] = ind_fitness[0]
                 # phi.loc[ind] = ind_fitness[1]
