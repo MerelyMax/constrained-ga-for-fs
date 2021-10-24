@@ -232,7 +232,7 @@ class GeneticAlgorithm(object):
         cv.random_state = 42
         cv.shuffle = False
         scorer = check_scoring(estimator, scoring=scoring)
-
+        best_params = dict()
         individual_sum = np.sum(individual, axis=0)
         if individual_sum == 0:
             scores_mean = -10000
@@ -260,6 +260,7 @@ class GeneticAlgorithm(object):
             model.fit(X_selected, y)
             # Mean cross-validated score of the best_estimator
             scores_mean = model.best_score_
+            best_params = model.best_params_
 
         # Calculates extra features number in the individdual
         extraFeatures = sum(individual[len(individual)-extraFeatures_num:])
@@ -286,10 +287,10 @@ class GeneticAlgorithm(object):
             print("phi1 = %i, phi2 = %i, phi3 = %i, phi4 = %i:" %
                   (phi1, phi2, phi3, phi4))
             print("Objective function value = ", scores_mean)
-            print('Best hyperparams found', model.best_params_)
+            print('Best hyperparams found', best_params)
             print('')
 
-        return scores_mean, phi, model.best_params_
+        return scores_mean, phi, best_params
 
     def AdaptivePenalty(self, objective_func, violations):
         fitnessFunction = np.zeros([len(objective_func), 1])
