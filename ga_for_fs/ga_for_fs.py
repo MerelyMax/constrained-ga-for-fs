@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import check_cv
+from sklearn.model_selection import check_cv, GridSearchCV
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
 
@@ -232,25 +232,34 @@ class GeneticAlgorithm(object):
         cv.random_state = 42
         cv.shuffle = False
         scorer = check_scoring(estimator, scoring=scoring)
-        rows = X.shape[0]
-        indexes = np.arange(X.shape[0])
 
         individual_sum = np.sum(individual, axis=0)
         if individual_sum == 0:
             scores_mean = -10000
         else:
-            # Здесь выбираются признаки по маске
+            # Choose features according to the mask
             X_selected = X[:, np.array(individual, dtype=bool)]
-            scores = []
+            # scores = []
             # evaluation of the model
-            # to guarantee there will no be overfitting one uses CV
-            for train, test in cv.split(X, y):
-                score = _fit_and_score(estimator=estimator, X=X_selected, y=y, scorer=scorer,
-                                       train=train, test=test, verbose=0, parameters=None,
-                                       fit_params=None)
-                # simplefilter(action='ignore', category=FutureWarning)
-                scores.append(score)
-            scores_mean = score['test_scores'] * 100
+            # to guarantee there will be no overfitting - CV is used
+            # for train, test in cv.split(X_selected, y):
+            #     score = _fit_and_score(estimator=estimator, X=X_selected, y=y, scorer=scorer,
+            #                            train=train, test=test, verbose=0, parameters=None,
+            #                            fit_params=None)
+            #     # simplefilter(action='ignore', category=FutureWarning)
+            #     scores.append(score)
+            # scores_mean = score['test_scores'] * 100
+            model = GridSearchCV(estimator=estimator,
+                                 param_grid=[{ 'kernel' : ('linear', 'poly', 'rbf', 'sigmoid'),
+                                                'C' : np.insert(np.arange(10.0, 110, 10), 0, [0.5,1,5]),
+                                                'gamma' : np.arange(0.1, 1.1, 0.1)}],
+                                 scoring='f1_macro',
+                                 n_jobs=-1,
+                                 refit=True,
+                                 cv=cv)
+            model.fit(X_selected, y)
+            # Mean cross-validated score of the best_estimator
+            scores_mean = model.best_score_
 
         # Calculates extra features number in the individdual
         extraFeatures = sum(individual[len(individual)-extraFeatures_num:])
