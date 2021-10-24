@@ -286,9 +286,10 @@ class GeneticAlgorithm(object):
             print("phi1 = %i, phi2 = %i, phi3 = %i, phi4 = %i:" %
                   (phi1, phi2, phi3, phi4))
             print("Objective function value = ", scores_mean)
+            print('Best hyperparams found', model.best_params_)
             print('')
 
-        return scores_mean, phi
+        return scores_mean, phi, model.best_params_
 
     def AdaptivePenalty(self, objective_func, violations):
         fitnessFunction = np.zeros([len(objective_func), 1])
@@ -341,13 +342,15 @@ class GeneticAlgorithm(object):
         best_indexes : numpy array
             Indexes (chosen features) of the individual with 
             the best fitness value found under constraints
+
+        ind_best_hyperparam : dict
+            Best estimator hyperparameters found during CV
+            in the fitness function
         """
-        HallOfFame = []
         results = []
         ind_sum = []
-        phi_mas = []
-        statistics = []
         indexes_mask = []
+        best_params = []
         # Инициализация популяции
         population = self.createPopulation(self.n_population,
                                            self.chromosomeLength,
@@ -356,26 +359,29 @@ class GeneticAlgorithm(object):
         for currentGeneration in range(self.n_gen):
             phi = pd.DataFrame(columns=['phi1', 'phi2', 'phi3', 'phi4'])
             popObjectives = np.zeros([self.n_population, 1])
-            # Расчет целевой функции каждого индивида
+            best_params_population = []
+            # Calculation objective for every individual
             for ind in range(self.n_population):
-                ind_fitness = self.fitness(X=self.X,
-                                           y=self.y,
-                                           estimator=self.estimator,
-                                           scoring=self.scoring,
-                                           cv=self.cv,
-                                           individual=population[ind],
-                                           epoch=currentGeneration,
-                                           extraFeatures_num=self.extraFeatures_num,
-                                           verbose=self.verbose)
+                # scores_mean || phi || model.best_params_
+                popObjectives[ind], phi.loc[ind], best_params= self.fitness(X=self.X,
+                                                                y=self.y,
+                                                                estimator=self.estimator,
+                                                                scoring=self.scoring,
+                                                                cv=self.cv,
+                                                                individual=population[ind],
+                                                                epoch=currentGeneration,
+                                                                extraFeatures_num=self.extraFeatures_num,
+                                                                verbose=self.verbose)
+                best_params_population.append(best_params)
 
-                popObjectives[ind] = ind_fitness[0]
-                phi.loc[ind] = ind_fitness[1]
-            # Накладываем АДАПТИВНЫЙ штраф - итоговая оценка пригодности
+                # popObjectives[ind] = ind_fitness[0]
+                # phi.loc[ind] = ind_fitness[1]
+            # Impose adaptive penalty - final fitness assessement
             popFitnesses = np.zeros([self.n_population, 1])
             penalties = np.zeros([self.n_population, 1])
-            result = self.AdaptivePenalty(popObjectives, phi)
-            popFitnesses = result[0]
-            penalties = result[1]
+            popFitnesses, penalties = self.AdaptivePenalty(popObjectives, phi)
+            # popFitnesses = result[0]
+            # penalties = result[1]
             if (self.verbose == True):
                 print('-'*60)
                 print(f'Best fitness value (with constraint) for {currentGeneration} population = {popFitnesses.max()}')
@@ -399,6 +405,7 @@ class GeneticAlgorithm(object):
                     np.array(feasible_solution[np.argmax(feasible_fit)][0]) > 0)
                 ind_sum.append(
                     sum(feasible_solution[np.argmax(feasible_fit)][0]))
+                best_params.append(best_params_population[np.argmax(feasible_fit)])
 
             # замещаем старую популяцию новой
             population = self.runOneGeneration(population, self.chromosomeLength, self.n_population, popFitnesses,
@@ -411,5 +418,5 @@ class GeneticAlgorithm(object):
             # Вывод: Лучшее значение пригодности || Количество лучших признаков
             print(
                 f'Best {self.scoring} score: {np.max(results)/100} || Final number of features: {ind_sum[np.argmax(results)]}')
-            # Лучшее значение пригодности || Индексы лучших признаков
-            return np.max(results)/100, np.arange(np.shape(self.X)[1])[indexes_mask[np.argmax(results)]]
+            # Лучшее значение пригодности || Индексы лучших признаков || Гиперпараметры лучшего индивида
+            return np.max(results)/100, np.arange(np.shape(self.X)[1])[indexes_mask[np.argmax(results)]], best_params[np.argmax(results)]
