@@ -398,22 +398,24 @@ class GeneticAlgorithm(object):
                 print('-'*60)
                 print('')
 
-            # Запомним лучшего индивида с УЧЕТОМ ДОПУСТИМОСТИ + его пригодность + его штраф
+            # Save best FEASIBLE individual + its fitness + penalty + best hyperparams on CV
             feasible_solution = []
             feasible_fit = []
+            feasible_best_params = []
             for i in range(self.n_population):
                 if ((phi.iloc[i]['phi1'] == 0) and (phi.iloc[i]['phi2'] == 0) and (phi.iloc[i]['phi3'] == 0) and (phi.iloc[i]['phi4'] == 0)):
                     feasible_solution.append([population[i],
                                               penalties[i]])
                     feasible_fit.append(popFitnesses[i])
-
+                    feasible_best_params.append(best_params_population[i])
+            # Find the best solution within feadible individuals
             if (len(feasible_solution) != 0):
                 results.append(np.max(feasible_fit))
                 indexes_mask.append(
                     np.array(feasible_solution[np.argmax(feasible_fit)][0]) > 0)
                 ind_sum.append(
                     sum(feasible_solution[np.argmax(feasible_fit)][0]))
-                best_params.append(best_params_population[np.argmax(feasible_fit)])
+                best_params.append(feasible_best_params[np.argmax(feasible_fit)])
 
             # замещаем старую популяцию новой
             population = self.runOneGeneration(population, self.chromosomeLength, self.n_population, popFitnesses,
