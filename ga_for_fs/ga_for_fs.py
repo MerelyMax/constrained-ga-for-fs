@@ -233,7 +233,7 @@ class GeneticAlgorithm(object):
         else:
             # CV returns kFold
             cv = check_cv(cv, y)
-        
+        print('Current cv type: ', type(cv))
         cv.random_state = 42
         # Turn off shuffle to make identical cv conditionals for each individual
         cv.shuffle = False
