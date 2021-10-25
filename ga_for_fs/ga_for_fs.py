@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import numpy as np
 import pandas as pd
+from pandas.core.arrays.sparse import dtype
 from sklearn.model_selection import check_cv, GridSearchCV
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
 
-#  Подумать как реализовать автоматическое определение количества экстра признаков
+#  НЕ ХВАТАЕТ ПАРАМЕТРА НАСТРОЙКИ турнира - сколько брыть индивидов для турнира
 class GeneticAlgorithm(object):
 
     def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, extraFeatures_num, num_features_to_init=None, indexes_prob=None, verbose=False):
@@ -116,6 +117,7 @@ class GeneticAlgorithm(object):
                     samples = np.random.choice(chromosome_indexes,
                                                features_to_retain,
                                                replace=False)
+                    # Если без повторения, то зачем искать unique?
                     genes = np.unique(samples)
                     population[k] = np.isin(
                         chromosome_indexes, genes, assume_unique=True)*1
@@ -225,7 +227,13 @@ class GeneticAlgorithm(object):
         return individual
 
     def fitness(self, X, y, estimator, scoring, cv, individual, epoch, extraFeatures_num, verbose):
-        cv = check_cv(cv, y)
+        if (y.dtype == 'int64'):
+            # CV returns StratifiedkFold
+            cv = check_cv(cv, y, classifier=True)
+        else:
+            # CV returns kFold
+            cv = check_cv(cv, y)
+        
         cv.random_state = 42
         # Turn off shuffle to make identical cv conditionals for each individual
         cv.shuffle = False
