@@ -226,12 +226,10 @@ class GeneticAlgorithm(object):
 
     def fitness(self, X, y, estimator, scoring, cv, individual, epoch, extraFeatures_num, verbose):
         cv = check_cv(cv, y)
-
-        # сделаем разбиение для каждого индивида одинаковым, чтобы
-        # сравнивать точность классификатора при одинаковых условиях (выборках)
         cv.random_state = 42
+        # Turn off shuffle to make identical cv conditionals for each individual
         cv.shuffle = False
-        scorer = check_scoring(estimator, scoring=scoring)
+        # scorer = check_scoring(estimator, scoring=scoring)
         best_params = dict()
         individual_sum = np.sum(individual, axis=0)
         if individual_sum == 0:
@@ -247,6 +245,7 @@ class GeneticAlgorithm(object):
             #                            train=train, test=test, verbose=0, parameters=None,
             #                            fit_params=None)
             #     # simplefilter(action='ignore', category=FutureWarning)
+            #   ЧТО-ТО НАПУТАНО С МАССИВАМИ score/scores
             #     scores.append(score)
             # scores_mean = score['test_scores'] * 100
             model = GridSearchCV(estimator=estimator,
@@ -259,15 +258,15 @@ class GeneticAlgorithm(object):
                                  cv=cv)
             model.fit(X_selected, y)
             # Mean cross-validated score of the best_estimator
-            scores_mean = model.best_score_
+            scores_mean = model.best_score_ * 100
             best_params = model.best_params_
 
-        # Calculates extra features number in the individdual
+        # Calculates extra features number in the individual
         extraFeatures = sum(individual[len(individual)-extraFeatures_num:])
         # Calculates initial (original) features number in the individual
         originalFeatures = sum(individual[:len(individual)-extraFeatures_num])
 
-        # наложить штраф на scores_mean по правилу:
+        # Penalize scores_mean according to the rules:
         phi1 = max(0, (2-extraFeatures))
         phi2 = max(0, (extraFeatures-4))
         phi3 = max(0, (2-originalFeatures))
@@ -279,7 +278,6 @@ class GeneticAlgorithm(object):
         # penalty = dynamic_penalty(len(individual))
         # fitnessValue = scores_mean * 100 - penalty
 
-        # Для детального анализа работы
         if (verbose == True):
             print("Epoch = ", epoch)
             print("Individual: ", individual)
@@ -313,23 +311,22 @@ class GeneticAlgorithm(object):
                     k = (abs(avg_objective_func) * avg_phi[j]) / constraints_sum
                     penalty += k * violations.iloc[i, j]
                 fitnessFunction[i] = fitnessFunction[i] - penalty
-                # Сохраним штраф для вывода
+                # Save penalty to be printed when Verbose=True
                 penalties_mas[i] = penalty
         return fitnessFunction, penalties_mas
 
     def runOneGeneration(self, population, chromosomeLength, n_population, fitnessValues, crossoverType, mutationProb):
-        # newPopulation = np.empty([chromosomeLength, 1])
         newPopulation = np.zeros((n_population, chromosomeLength))
         # newPopulation = []
         for ind in range(n_population):
-            # селекция
+            # Selection
             parents = self.selectionTNT(2, n_population, fitnessValues)
-            # скрещивание
+            # Crossover
             offspring = self.crossover(
                 parents[0], parents[1], population, chromosomeLength, crossoverType)
-            # мутация
+            # Mutation
             offspring = self.mutationPoint(offspring, mutationProb)
-            # добавляем потомка в новую популяцию
+            # Add offspring to the population
             newPopulation[ind] = offspring
         return newPopulation
 
