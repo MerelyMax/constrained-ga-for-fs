@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 from pandas.core.arrays.sparse import dtype
-from sklearn.model_selection import check_cv, GridSearchCV
+from sklearn.model_selection import check_cv, GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
 
@@ -237,7 +237,7 @@ class GeneticAlgorithm(object):
         cv.random_state = 42
         # Turn off shuffle to make identical cv conditionals for each individual
         cv.shuffle = False
-        # scorer = check_scoring(estimator, scoring=scoring)
+        scorer = check_scoring(estimator, scoring=scoring)
         best_params = dict()
         individual_sum = np.sum(individual, axis=0)
         if individual_sum == 0:
@@ -256,13 +256,13 @@ class GeneticAlgorithm(object):
             #   ЧТО-ТО НАПУТАНО С МАССИВАМИ score/scores
             #     scores.append(score)
             # scores_mean = score['test_scores'] * 100
-            model = GridSearchCV(estimator=estimator,
-                                 param_grid=[{ 'kernel' : ('linear', 'poly', 'rbf', 'sigmoid'),
+            model = RandomizedSearchCV(estimator=estimator,
+                                 param_distributions=[{ 'kernel' : ('linear', 'poly', 'rbf', 'sigmoid'),
                                                 'C' : np.insert(np.arange(10.0, 110, 10), 0, [0.5,1,5]),
                                                 'gamma' : np.arange(0.1, 1.1, 0.1)}],
-                                 scoring='f1_macro',
+                                 scoring=scorer,
                                  n_jobs=-1,
-                                 refit=True,
+                                 refit=False,
                                  cv=cv)
             model.fit(X_selected, y)
             # Mean cross-validated score of the best_estimator
