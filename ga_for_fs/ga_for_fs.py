@@ -235,7 +235,7 @@ class GeneticAlgorithm(object):
             cv = check_cv(cv, y)
 
         cv.random_state = 42
-        # Turn off shuffle to make identical cv conditionals for each individual
+        # Turn off shuffle to make identical cv conditions for each individual
         cv.shuffle = False
         scorer = check_scoring(estimator, scoring=scoring)
         best_params = dict()
@@ -262,6 +262,7 @@ class GeneticAlgorithm(object):
                                                 'gamma' : np.arange(0.1, 1.1, 0.1)}],
                                  scoring=scorer,
                                  n_jobs=-1,
+                                 pre_dispatch='n_jobs',
                                  refit=False,
                                  cv=cv)
             model.fit(X_selected, y)
