@@ -301,8 +301,10 @@ class GeneticAlgorithm(object):
         return scores_mean, phi, best_params
 
     def AdaptivePenalty(self, objective_func, violations):
-        fitnessFunction = np.zeros([len(objective_func), 1])
-        penalties_mas = np.zeros([len(objective_func), 1])
+        # fitnessFunction = np.zeros([len(objective_func), 1])
+        # penalties_mas = np.zeros([len(objective_func), 1])
+        fitnessFunction = np.zeros(len(objective_func))
+        penalties_mas = np.zeros(len(objective_func))
 
         avg_objective_func = objective_func.mean()
         avg_phi = [violations['phi1'].mean(), violations['phi2'].mean(),
@@ -385,11 +387,8 @@ class GeneticAlgorithm(object):
                 # popObjectives[ind] = ind_fitness[0]
                 # phi.loc[ind] = ind_fitness[1]
             # Impose adaptive penalty - final fitness assessement
-            popFitnesses = np.zeros([self.n_population, 1])
-            penalties = np.zeros([self.n_population, 1])
+
             popFitnesses, penalties = self.AdaptivePenalty(popObjectives, phi)
-            # popFitnesses = result[0]
-            # penalties = result[1]
             if (self.verbose == True):
                 print('-'*60)
                 print(f'Best fitness value (with constraint) for {currentGeneration} population = {popFitnesses.max()}')
