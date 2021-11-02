@@ -21,7 +21,7 @@ import os
 # else:
 #     DEFAULT_MP_CONTEXT = None
 
-os.environ['JOBLIB_START_METHOD'] = 'forkserver'
+os.environ['JOBLIB_START_METHOD'] = 'spawn'
 print(f'Curent JOBLOB environment: {os.environ.get("JOBLIB_START_METHOD")}')
 #  НЕ ХВАТАЕТ ПАРАМЕТРА НАСТРОЙКИ турнира - сколько брыть индивидов для турнира
 class GeneticAlgorithm(object):
