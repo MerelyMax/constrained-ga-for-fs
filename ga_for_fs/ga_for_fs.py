@@ -18,7 +18,7 @@ if hasattr(mp, 'get_start_method'):
             and 'forkserver' in mp.get_all_start_methods()):
         method = 'forkserver'
     DEFAULT_MP_CONTEXT = mp.get_context(method=method)
-    print(os.environ.get('JOBLIB_START_METHOD'))
+    print(mp.get_start_method())
 else:
     DEFAULT_MP_CONTEXT = None
 
