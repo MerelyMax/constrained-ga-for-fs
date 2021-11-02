@@ -6,7 +6,7 @@ from sklearn.model_selection import check_cv, GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
 
-from ._multiprocessing_helpers import mp
+import multiprocessing as mp
 import os
 
 # Under Python 3.4+ use the 'forkserver' start method by default: this makes it
