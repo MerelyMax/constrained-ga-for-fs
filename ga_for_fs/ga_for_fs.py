@@ -278,7 +278,7 @@ class GeneticAlgorithm(object):
                                                 'C' : np.insert(np.arange(10.0, 110, 10), 0, [0.5,1,5]),
                                                 'gamma' : np.arange(0.1, 1.1, 0.1)}],
                                  scoring=scorer,
-                                #  n_jobs=-1,
+                                 n_jobs=-1,
                                  refit=False,
                                  cv=cv)
             model.fit(X_selected, y)
