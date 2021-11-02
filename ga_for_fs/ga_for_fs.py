@@ -14,11 +14,11 @@ import os
 # pool that does not tolerate forking
 if hasattr(mp, 'get_start_method'):
     method = os.environ.get('JOBLIB_START_METHOD')
-    print(method)
     if (method is None and mp.get_start_method() == 'fork'
             and 'forkserver' in mp.get_all_start_methods()):
         method = 'forkserver'
     DEFAULT_MP_CONTEXT = mp.get_context(method=method)
+    print(os.environ.get('JOBLIB_START_METHOD'))
 else:
     DEFAULT_MP_CONTEXT = None
 
