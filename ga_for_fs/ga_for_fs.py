@@ -6,6 +6,22 @@ from sklearn.model_selection import check_cv, GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
 
+from ._multiprocessing_helpers import mp
+import os
+
+# Under Python 3.4+ use the 'forkserver' start method by default: this makes it
+# possible to avoid crashing 3rd party libraries that manage an internal thread
+# pool that does not tolerate forking
+if hasattr(mp, 'get_start_method'):
+    method = os.environ.get('JOBLIB_START_METHOD')
+    print(method)
+    if (method is None and mp.get_start_method() == 'fork'
+            and 'forkserver' in mp.get_all_start_methods()):
+        method = 'forkserver'
+    DEFAULT_MP_CONTEXT = mp.get_context(method=method)
+else:
+    DEFAULT_MP_CONTEXT = None
+
 #  НЕ ХВАТАЕТ ПАРАМЕТРА НАСТРОЙКИ турнира - сколько брыть индивидов для турнира
 class GeneticAlgorithm(object):
 
