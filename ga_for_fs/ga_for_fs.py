@@ -436,6 +436,8 @@ class GeneticAlgorithm(object):
             # замещаем старую популяцию новой
             population = self.runOneGeneration(population, self.chromosomeLength, self.n_population, popFitnesses,
                                                self.crossoverType, self.mutationProb)
+            print(f'{currentGeneration} epoch has finished')
+            
         if (len(results) == 0):
             print('There is no solution satisfying conditions')
             results.append(0)
