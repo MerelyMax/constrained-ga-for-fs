@@ -101,7 +101,7 @@ class GeneticAlgorithm(object):
                 1, 0.5, size = chromosomeLength * n_population)
             population = population.reshape(n_population, chromosomeLength)
 
-        if (initType == 'uniform_fixed_fnum'):
+        elif (initType == 'uniform_fixed_fnum'):
             population = np.zeros((n_population, chromosomeLength))
             chromosome_indexes = np.arange(chromosomeLength)
             
