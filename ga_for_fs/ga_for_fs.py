@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from logging import raiseExceptions
 import numpy as np
 import pandas as pd
 from pandas.core.arrays.sparse import dtype
@@ -101,7 +102,7 @@ class GeneticAlgorithm(object):
                 1, 0.5, size = chromosomeLength * n_population)
             population = population.reshape(n_population, chromosomeLength)
 
-        elif (initType == 'uniform_fixed_fnum'):
+        if (initType == 'uniform_fixed_fnum'):
             population = np.zeros((n_population, chromosomeLength))
             chromosome_indexes = np.arange(chromosomeLength)
             
@@ -124,7 +125,8 @@ class GeneticAlgorithm(object):
                 # genes = np.unique(samples)
                 population[k] = np.isin(
                     chromosome_indexes, genes, assume_unique=True)*1
-
+        else:
+            population = []
         return population
 
     def selectionTNT(self, tntSize, n_population, fitnessValues):
