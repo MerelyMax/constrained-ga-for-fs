@@ -2,12 +2,10 @@
 import numpy as np
 import pandas as pd
 from pandas.core.arrays.sparse import dtype
-from sklearn.model_selection import check_cv, GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import check_cv, cross_val_score
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
-
-import multiprocessing as mp
-import os
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 # Under Python 3.4+ use the 'forkserver' start method by default: this makes it
 # possible to avoid crashing 3rd party libraries that manage an internal thread
@@ -59,141 +57,83 @@ class GeneticAlgorithm(object):
 
         initType: string
             Initialization type of genetic algorithm. Available options:
-            ??? "coin",
-            -   "uniform", 
-            -   "from_own_dist".
+            – "coin" - toss a coin to decide whether to pick a feature or not (from binomial distribution),
+            - "uniform_fixed_fnum" - Should be used in conjunction with "num_features_to_init"
+            for datasets with large number of features (approx. > 30) to ensure convergence 
+            (the ability of the algorithm to find a solution under constraints). Each feature has 
+            the same probability of being selected as the other ones (from uniform distribution).
 
-        indexes_prob : float, available if initType="from_own_dist", defaul=None.
+        num_features_to_init : int, default=None
+            The fixed number of to choose in the initialization. 
+            It is used with initType: "uniform_fixed_fnum" only.
 
         extraFeatures_num : int
-            Number of additional (extra) features. Such might be extracted
+            Number of additional (extra) features. For example, extracted
             features (PCA, kernel PCA, Autoencoder, etc.) which were added to the 
             original features set. Two of four constraints of the algorithm
             will make search withing these features.
 
-        num_features_to_init : int, default=None
-            Should be used for datasets with large number of features (>30)
-            to ensure convergence (the ability of the algorithm to find a solution
-            under constraints).
-
         verbose : bool, default=False
             Regulates verbosity of the algorithm (penalty, fitness function, etc) for each epoch.
         """
-        self.X = X  # Массив признаков
-        self.y = y  # Массив меток классов
+        self.X = X
+        self.y = y
         self.estimator = estimator
         self.scoring = scoring
         self.cv = cv
-        self.n_population = n_population  # Количество индивидов в популяции
-        self.n_gen = n_gen  # Количество поколений
-        self.chromosomeLength = X.shape[1]  # Длина хромосомы
-        # Одноточечное, двухточечное или равномерное скрещивание
+        self.n_population = n_population
+        self.n_gen = n_gen
+        self.chromosomeLength = X.shape[1]
         self.crossoverType = crossoverType
-        self.mutationProb = mutationProb  # Вероятность мутации
-        self.initType = initType  # Тип инициализации популяции
-        self.extraFeatures_num = extraFeatures_num #Additional (constructed) features number
-        # Сколько в инициализации оставить признаков для очень больших выборок
+        self.mutationProb = mutationProb
+        self.initType = initType
         self.num_features_to_init = num_features_to_init
-        # Вероятности признаков по значимости, на которые указал фильтр
-        self.indexes_prob = indexes_prob
+        self.extraFeatures_num = extraFeatures_num
         self.verbose = verbose  # Для вывода подробной статистики
 
-    def createPopulation(self, n_population, chromosomeLength, initType, features_to_retain=None, indexes_prob=None):
+    def createPopulation(self, n_population, chromosomeLength, initType, num_features_to_init=None):
         "return matrix with population"
 
         if (initType == 'coin'):
-            # биномиальное с возвращением (гипергеометрическое без возвращения)
+            # use binomial distribution
             population = np.random.binomial(
-                1, 0.5, size=chromosomeLength * n_population)
+                1, 0.5, size = chromosomeLength * n_population)
             population = population.reshape(n_population, chromosomeLength)
 
-        if (initType == 'uniform'):
+        if (initType == 'uniform_fixed_fnum'):
             population = np.zeros((n_population, chromosomeLength))
             chromosome_indexes = np.arange(chromosomeLength)
+            
+            # if (num_features_to_init != None):
+                # for k in range(n_population):
+                #     # сэмплирование с повторением (имитация цикла для каждого признака) || Равномерное распр.
+                #     samples = np.random.choice(chromosome_indexes,
+                #                                chromosomeLength,
+                #                                replace=True)
+                #     genes = np.unique(samples)
+                #     population[k] = np.isin(
+                #         chromosome_indexes, genes, assume_unique=True)*1
+            # else:
+            for k in range(n_population):
+                # use uniform distribution
+                genes = np.random.choice(chromosome_indexes,
+                                           num_features_to_init,
+                                           replace = False)
+                # Если без повторения, то зачем искать unique?
+                # genes = np.unique(samples)
+                population[k] = np.isin(
+                    chromosome_indexes, genes, assume_unique=True)*1
 
-            if (features_to_retain == None):
-                for k in range(n_population):
-                    # сэмплирование с повторением (имитация цикла для каждого признака) || Равномерное распр.
-                    samples = np.random.choice(chromosome_indexes,
-                                               chromosomeLength,
-                                               replace=True)
-                    genes = np.unique(samples)
-                    population[k] = np.isin(
-                        chromosome_indexes, genes, assume_unique=True)*1
-            else:
-                for k in range(n_population):
-                    # сэмплирование БЕЗ повторения || Равномерное распределение
-                    samples = np.random.choice(chromosome_indexes,
-                                               features_to_retain,
-                                               replace=False)
-                    # Если без повторения, то зачем искать unique?
-                    genes = np.unique(samples)
-                    population[k] = np.isin(
-                        chromosome_indexes, genes, assume_unique=True)*1
-
-        if (initType == 'from_own_dist'):
-            population = np.zeros((n_population, chromosomeLength))
-            chromosome_indexes = np.arange(chromosomeLength)
-
-            # инициализация для маленьких выборок
-            if (features_to_retain == None):
-                for k in range(n_population):
-                    # сэмплирование с повторением (вернем точку обратно в корзину, разыграем вероятность заново)
-                    # с повторением - как бы имитация цикла по всем признакам, где на каждой итерации
-                    # по известнымм вероятностям выбирается ОДИН признак. Каждый новый запуск - тоже самое
-                    # что положить в корзину обратно и выбирать заново
-                    samples = np.random.choice(chromosome_indexes,
-                                               chromosomeLength,
-                                               p=indexes_prob)
-                    genes = np.unique(samples)
-                    # isin создает маску - True если объект содержится в массиве
-                    # *1 - умножение на 1 для конвертации True/False в 0,1
-                    population[k] = np.isin(
-                        chromosome_indexes, genes, assume_unique=True)*1
-            else:  # инициализация для LSVT и других выборок где features>150
-                two_thirds = int(features_to_retain*(2/3))
-                for k in range(n_population):
-                    counter = 0
-                    two_thirds_indexes = []
-                    # до тех пор, пока ReliefF признаков не будет 2/3
-                    while counter != two_thirds:
-                        # сэмплирование БЕЗ повторения
-                        samples = np.random.choice(chromosome_indexes,
-                                                   features_to_retain,
-                                                   p=indexes_prob,
-                                                   replace=False)
-                        # unique_samples = np.unique(samples)
-                        # считаем количество ReliefF признаков в полученном сэмпле
-                        for i in range(samples.shape[0]):
-                            check = any(item == samples[i]
-                                        for item in indexes_prob)
-                            # second condition: avoid two_thirds_indexes bigger than two_thirds
-                            if (check == True) and (np.shape(two_thirds_indexes)[0] < two_thirds):
-                                two_thirds_indexes.append(samples[i])
-                                counter += 1
-
-                    # setdiff1d - уберем индексы two_thirds_indexes из unique_samples
-                    # разыграем эксперимент (равномерное распределение) среди оставшихся
-                    # не могу сэмплировать с повторениями, тк ниже samples мб меньше, чем
-                    rest_indexes = np.random.choice(np.setdiff1d(samples, two_thirds_indexes),
-                                                    (features_to_retain -
-                                                     two_thirds),
-                                                    replace=False)
-                    genes = np.concatenate((rest_indexes, two_thirds_indexes))
-                    # isin создает маску - True если объект содержится в массиве
-                    # *1 - умножение на 1 для конвертации True/False в 0, 1
-                    population[k] = np.isin(
-                        chromosome_indexes, genes, assume_unique=True)*1
         return population
 
     def selectionTNT(self, tntSize, n_population, fitnessValues):
         "return pair of parent indexes"
-        # сгенерируем Т случайных индексов без повторений
+        # generate T random indexes without replacement
         indexes = np.random.choice(
             range(n_population), size=tntSize, replace=False)
-        # выберем в качестве первого родителя лучшего из индивидов с заданными индексами
+        # first parent is the one with the best fitness value across 'indexes'
         parent1index = indexes[np.argmax(fitnessValues[indexes])]
-        # повторим для 2го родителя
+        # same for the second parent
         indexes = np.random.choice(
             range(n_population), size=tntSize, replace=False)
         parent2index = indexes[np.argmax(fitnessValues[indexes])]
@@ -201,14 +141,14 @@ class GeneticAlgorithm(object):
 
     def crossover(self, parent1, parent2, population, chromosomeLength, crossoverType):
         if (crossoverType == 'OnePoint'):
-            # выберем случайную точку разрыва
+            # choose crossover point at random (discrete uniform distrobution)
             xpoint = np.random.randint(1, chromosomeLength)
-            # перемешаем гены. Т.к. возможно 2 варианата потомка, оставим только одного без сравнения их пригодности (случайно)
+            # blend the genes
             offspring = np.zeros(chromosomeLength)
             offspring[0:xpoint] = population[parent1, 0:xpoint]
             offspring[xpoint:] = population[parent2, xpoint:]
         if (crossoverType == 'TwoPoints'):
-            # выберем две случайных точки разрыва без повторений
+            # choose 2 crossover points at random without replacement
             rng = np.random.default_rng()
             points = rng.choice(chromosomeLength, size=2, replace=False)
             points.sort()
@@ -220,7 +160,6 @@ class GeneticAlgorithm(object):
         if (crossoverType == 'Uniform'):
             offspring = np.zeros(chromosomeLength)
             for i in range(chromosomeLength):
-                # np.random.random() генерирует число от 0 до 1
                 if (np.random.random() < 0.5):
                     offspring[i] = population[parent1, i]
                 else:
@@ -244,7 +183,7 @@ class GeneticAlgorithm(object):
             cv = check_cv(cv, y)
 
         cv.random_state = 42
-        # Turn off shuffle to make identical cv conditions for each individual
+        # Shuffle is not used in order to make identical cv splits for each individual
         cv.shuffle = False
         scorer = check_scoring(estimator, scoring=scoring)
         best_params = dict()
@@ -254,30 +193,23 @@ class GeneticAlgorithm(object):
         else:
             # Choose features according to the mask
             X_selected = X[:, np.array(individual, dtype=bool)]
-            # scores = []
-            # evaluation of the model
-            # to guarantee there will be no overfitting - CV is used
-            # for train, test in cv.split(X_selected, y):
-            #     score = _fit_and_score(estimator=estimator, X=X_selected, y=y, scorer=scorer,
-            #                            train=train, test=test, verbose=0, parameters=None,
-            #                            fit_params=None)
-            #     # simplefilter(action='ignore', category=FutureWarning)
-            #   ЧТО-ТО НАПУТАНО С МАССИВАМИ score/scores
-            #     scores.append(score)
-            # scores_mean = score['test_scores'] * 100
-            model = RandomizedSearchCV(estimator=estimator,
-                                 param_distributions=[{ 'kernel' : ('linear', 'poly', 'rbf', 'sigmoid'),
-                                                'C' : np.insert(np.arange(10.0, 110, 10), 0, [0.5,1,5]),
-                                                'gamma' : np.arange(0.1, 1.1, 0.1)}],
-                                 scoring=scorer,
-                                 n_jobs=-2,
-                                 refit=False,
-                                 cv=cv)
-            model.fit(X_selected, y)
-            # Mean cross-validated score of the best_estimator
-            scores_mean = model.best_score_ * 100
-            best_params = model.best_params_
+            # Hyperparameters of the Random Forest classifier to adjust by Hyperopt
+            tree_space = {'max_features' : hp.choice('max_depth', np.arange(0.1, 0.6, 0.1))}
+            trials = Trials()
 
+            def objective(params):
+                clf = estimator(**params)
+                f1_macro = cross_val_score(clf, X_selected, y, 
+                                            scoring=scorer, 
+                                            cv=cv, 
+                                            n_jobs=-1).mean()
+
+                return {'loss': -f1_macro, 'status' : STATUS_OK}
+
+            best_params = fmin(objective, tree_space, algo=tpe.rand.suggest, max_evals=30, 
+                                trials=trials, show_progressbar=False)
+            scores_mean = -trials.best_trial['result']['loss']*100
+        
         # Calculates extra features number in the individual
         extraFeatures = sum(individual[len(individual)-extraFeatures_num:])
         # Calculates initial (original) features number in the individual
@@ -290,10 +222,6 @@ class GeneticAlgorithm(object):
         phi4 = max(0, (originalFeatures-4))
 
         phi = [phi1, phi2, phi3, phi4]
-
-        # динамический
-        # penalty = dynamic_penalty(len(individual))
-        # fitnessValue = scores_mean * 100 - penalty
 
         if (verbose == True):
             print('Current cv type: ', type(cv))
@@ -370,7 +298,7 @@ class GeneticAlgorithm(object):
         ind_sum = []
         indexes_mask = []
         best_params = []
-        # Инициализация популяции
+        # Population initialization
         population = self.createPopulation(self.n_population,
                                            self.chromosomeLength,
                                            self.initType,
@@ -425,7 +353,7 @@ class GeneticAlgorithm(object):
                     sum(feasible_solution[np.argmax(feasible_fit)][0]))
                 best_params.append(feasible_best_params[np.argmax(feasible_fit)])
 
-            # замещаем старую популяцию новой
+            # Replace an old population with the new one
             population = self.runOneGeneration(population, self.chromosomeLength, self.n_population, popFitnesses,
                                                self.crossoverType, self.mutationProb)
             print(f'{currentGeneration} epoch has finished')
@@ -435,8 +363,7 @@ class GeneticAlgorithm(object):
             results.append(0)
             return [], []
         else:
-            # Вывод: Лучшее значение пригодности || Количество лучших признаков
             print(
                 f'Best {self.scoring} score: {np.max(results)/100} || Final number of features: {ind_sum[np.argmax(results)]}')
-            # Лучшее значение пригодности || Индексы лучших признаков || Гиперпараметры лучшего индивида
+            #        best_fitness     ||                           best_indexes                        ||        ind_best_hyperparam
             return np.max(results)/100, np.arange(np.shape(self.X)[1])[indexes_mask[np.argmax(results)]], best_params[np.argmax(results)]
