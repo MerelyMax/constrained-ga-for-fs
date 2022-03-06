@@ -16,7 +16,7 @@ from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 #  НЕ ХВАТАЕТ ПАРАМЕТРА НАСТРОЙКИ турнира - сколько брыть индивидов для турнира
 class GeneticAlgorithm(object):
 
-    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, extraFeatures_num, num_features_to_init=None, indexes_prob=None, verbose=False):
+    def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, extraFeatures_num, num_features_to_init=None, verbose=False):
         """
         Genetic Algorithm for feature selection.
 
@@ -32,6 +32,7 @@ class GeneticAlgorithm(object):
             -   Classification: labels.
 
         estimator : Scikit-learn estimator instance for regression or classification.
+                    Currently, only Random Forest classifier is supported!
 
         scoring : string
             Any available scoring instance for scikit-learn estimator 
@@ -194,7 +195,8 @@ class GeneticAlgorithm(object):
             # Choose features according to the mask
             X_selected = X[:, np.array(individual, dtype=bool)]
             # Hyperparameters of the Random Forest classifier to adjust by Hyperopt
-            tree_space = {'max_features' : hp.choice('max_depth', np.arange(0.1, 0.6, 0.1))}
+            tree_space = {'n_estimators' : hp.choice('n_estimators', np.arange(100, 400, 100)),
+                          'max_depth' : hp.choice('max_depth', np.arange(0.1, 0.6, 0.1))}
             trials = Trials()
 
             def objective(params):
