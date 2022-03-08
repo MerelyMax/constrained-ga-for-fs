@@ -52,7 +52,9 @@ class GeneticAlgorithm(object):
             Crossover type of genetic algorithm. Available options: 
             -   One point: "OnePoint", 
             -   Two point: "TwoPoints",
-            -   Uniform: "Uniform".
+            -   Uniform: "Uniform" - The decision to choose the gene whether from parent1
+            or parent2 in an offspring is being made by random generator uniformly
+            distributed.
 
         mutationProb : float
             Mutation probability for genetic algorithm. Usual practice is to set the value to: 1/n_features.
@@ -159,7 +161,7 @@ class GeneticAlgorithm(object):
             offspring[0:xpoint] = population[parent1, 0:xpoint]
             offspring[xpoint:] = population[parent2, xpoint:]
         if (crossoverType == 'TwoPoints'):
-            # choose 2 crossover points at random without replacement
+            # choose two crossover points at random without replacement
             rng = np.random.default_rng()
             points = rng.choice(chromosomeLength, size=2, replace=False)
             points.sort()
