@@ -8,13 +8,6 @@ from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
-# Under Python 3.4+ use the 'forkserver' start method by default: this makes it
-# possible to avoid crashing 3rd party libraries that manage an internal thread
-# pool that does not tolerate forking
-# os.environ['JOBLIB_START_METHOD'] = 'forkserver'
-# print(f'Curent JOBLOB environment: {os.environ.get("JOBLIB_START_METHOD")}')
-
-#  НЕ ХВАТАЕТ ПАРАМЕТРА НАСТРОЙКИ турнира - сколько брыть индивидов для турнира
 class GeneticAlgorithm(object):
 
     def __init__(self, X, y, estimator, scoring, cv, n_population, n_gen, crossoverType, mutationProb, initType, extraFeatures_num, num_features_to_init=None, verbose=False):
@@ -93,7 +86,7 @@ class GeneticAlgorithm(object):
         self.initType = initType
         self.num_features_to_init = num_features_to_init
         self.extraFeatures_num = extraFeatures_num
-        self.verbose = verbose  # Для вывода подробной статистики
+        self.verbose = verbose
 
     def createPopulation(self, n_population, chromosomeLength, initType, num_features_to_init=None):
         "return matrix with population"
@@ -101,25 +94,12 @@ class GeneticAlgorithm(object):
         if (initType == 'coin'):
             # use binomial distribution
             population = np.random.binomial(
-                1, 0.5, size = chromosomeLength * n_population)
+                1, 0.5, size=chromosomeLength * n_population)
             population = population.reshape(n_population, chromosomeLength)
             return population
 
         if (initType == 'uniform_fixed_fnum'):
-            
-            # if (num_features_to_init != None):
-                # for k in range(n_population):
-                #     # сэмплирование с повторением (имитация цикла для каждого признака) || Равномерное распр.
-                #     samples = np.random.choice(chromosome_indexes,
-                #                                chromosomeLength,
-                #                                replace=True)
-                #     genes = np.unique(samples)
-                #     population[k] = np.isin(
-                #         chromosome_indexes, genes, assume_unique=True)*1
-            # else:
-            # if num_features_to_init == None:
-            #     raiseExceptions("You should pass 'num_features_to_init' to the constructor")
-            # else:
+
             if num_features_to_init == None:
                 print('')
                 print("You should pass 'num_features_to_init' to the constructor")
@@ -131,9 +111,9 @@ class GeneticAlgorithm(object):
                 for k in range(n_population):
                     # use uniform distribution
                     genes = np.random.choice(chromosome_indexes,
-                                           num_features_to_init,
-                                           replace = False)
-                    # Если без повторения, то зачем искать unique?
+                                             num_features_to_init,
+                                             replace=False)
+                    # --without replacement. why unique?--
                     # genes = np.unique(samples)
                     population[k] = np.isin(
                         chromosome_indexes, genes, assume_unique=True)*1
@@ -207,23 +187,23 @@ class GeneticAlgorithm(object):
             # Choose features according to the mask
             X_selected = X[:, np.array(individual, dtype=bool)]
             # Hyperparameters of the Random Forest classifier to adjust by Hyperopt
-            tree_space = {'n_estimators' : hp.choice('n_estimators', [100, 200, 300]),
-                            'max_depth': hp.quniform('max_depth', 5, 25, 5)}
+            tree_space = {'n_estimators': hp.choice('n_estimators', [100, 200, 300]),
+                          'max_depth': hp.quniform('max_depth', 5, 25, 5)}
             trials = Trials()
 
             def objective(params):
                 clf = estimator(**params)
-                f1_macro = cross_val_score(clf, X_selected, y, 
-                                            scoring=scorer, 
-                                            cv=cv, 
-                                            n_jobs=-1).mean()
+                f1_macro = cross_val_score(clf, X_selected, y,
+                                           scoring=scorer,
+                                           cv=cv,
+                                           n_jobs=-1).mean()
 
-                return {'loss': -f1_macro, 'status' : STATUS_OK}
+                return {'loss': -f1_macro, 'status': STATUS_OK}
 
-            best_params = fmin(objective, tree_space, algo=tpe.rand.suggest, max_evals=30, 
-                                trials=trials, show_progressbar=False)
+            best_params = fmin(objective, tree_space, algo=tpe.rand.suggest, max_evals=30,
+                               trials=trials, show_progressbar=False)
             scores_mean = -trials.best_trial['result']['loss']*100
-        
+
         # Calculates extra features number in the individual
         extraFeatures = sum(individual[len(individual)-extraFeatures_num:])
         # Calculates initial (original) features number in the individual
@@ -242,8 +222,10 @@ class GeneticAlgorithm(object):
             print(30*'-')
             print(f'Epoch = {epoch}')
             print(f'Individual: {individual}')
-            print(f'All features (sum) {individual_sum} = constructed ({extraFeatures}) + original ({originalFeatures})')
-            print(f'phi1 = {phi1}, phi2 = {phi2}, phi3 = {phi3}, phi4 = {phi4}')
+            print(
+                f'All features (sum) {individual_sum} = constructed ({extraFeatures}) + original ({originalFeatures})')
+            print(
+                f'phi1 = {phi1}, phi2 = {phi2}, phi3 = {phi3}, phi4 = {phi4}')
             print(f'Objective function value = {scores_mean}')
             print(f'Best hyperparams found {best_params}')
             print('')
@@ -251,8 +233,6 @@ class GeneticAlgorithm(object):
         return scores_mean, phi, best_params
 
     def AdaptivePenalty(self, objective_func, violations):
-        # fitnessFunction = np.zeros([len(objective_func), 1])
-        # penalties_mas = np.zeros([len(objective_func), 1])
         fitnessFunction = np.zeros(len(objective_func))
         penalties_mas = np.zeros(len(objective_func))
 
@@ -270,7 +250,8 @@ class GeneticAlgorithm(object):
                     fitnessFunction[i] = avg_objective_func
                 penalty = 0
                 for j in range(len(avg_phi)):
-                    k = (abs(avg_objective_func) * avg_phi[j]) / constraints_sum
+                    k = (abs(avg_objective_func) *
+                         avg_phi[j]) / constraints_sum
                     penalty += k * violations.iloc[i, j]
                 fitnessFunction[i] = fitnessFunction[i] - penalty
                 # Save penalty to be printed when Verbose=True
@@ -279,7 +260,6 @@ class GeneticAlgorithm(object):
 
     def runOneGeneration(self, population, chromosomeLength, n_population, fitnessValues, crossoverType, mutationProb):
         newPopulation = np.zeros((n_population, chromosomeLength))
-        # newPopulation = []
         for ind in range(n_population):
             # Selection
             parents = self.selectionTNT(2, n_population, fitnessValues)
@@ -324,26 +304,26 @@ class GeneticAlgorithm(object):
             for ind in range(self.n_population):
                 # scores_mean || phi || model.best_params_
                 popObjectives[ind], phi.loc[ind], best_params_ind = self.fitness(X=self.X,
-                                                                y=self.y,
-                                                                estimator=self.estimator,
-                                                                scoring=self.scoring,
-                                                                cv=self.cv,
-                                                                individual=population[ind],
-                                                                epoch=currentGeneration,
-                                                                extraFeatures_num=self.extraFeatures_num,
-                                                                verbose=self.verbose)
+                                                                                 y=self.y,
+                                                                                 estimator=self.estimator,
+                                                                                 scoring=self.scoring,
+                                                                                 cv=self.cv,
+                                                                                 individual=population[ind],
+                                                                                 epoch=currentGeneration,
+                                                                                 extraFeatures_num=self.extraFeatures_num,
+                                                                                 verbose=self.verbose)
                 best_params_population.append(best_params_ind)
 
-                # popObjectives[ind] = ind_fitness[0]
-                # phi.loc[ind] = ind_fitness[1]
             # Impose adaptive penalty - final fitness assessement
-
             popFitnesses, penalties = self.AdaptivePenalty(popObjectives, phi)
             if (self.verbose == True):
                 print('-'*60)
-                print(f'Best fitness value (with constraint) for {currentGeneration} population = {popFitnesses.max()}')
-                print(f'Penalty value for best fitness = {penalties[popFitnesses.argmax()]}')
-                print(f'Number of selected features = {population[popFitnesses.argmax()].sum()}')
+                print(
+                    f'Best fitness value (with constraint) for {currentGeneration} population = {popFitnesses.max()}')
+                print(
+                    f'Penalty value for best fitness = {penalties[popFitnesses.argmax()]}')
+                print(
+                    f'Number of selected features = {population[popFitnesses.argmax()].sum()}')
                 print('-'*60)
                 print('')
 
@@ -364,13 +344,14 @@ class GeneticAlgorithm(object):
                     np.array(feasible_solution[np.argmax(feasible_fit)][0]) > 0)
                 ind_sum.append(
                     sum(feasible_solution[np.argmax(feasible_fit)][0]))
-                best_params.append(feasible_best_params[np.argmax(feasible_fit)])
+                best_params.append(
+                    feasible_best_params[np.argmax(feasible_fit)])
 
             # Replace an old population with the new one
             population = self.runOneGeneration(population, self.chromosomeLength, self.n_population, popFitnesses,
                                                self.crossoverType, self.mutationProb)
             print(f'{currentGeneration} epoch has finished')
-            
+
         if (len(results) == 0):
             print('There is no solution satisfying conditions')
             results.append(0)
