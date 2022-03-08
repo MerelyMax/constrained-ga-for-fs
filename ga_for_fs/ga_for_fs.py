@@ -337,7 +337,7 @@ class GeneticAlgorithm(object):
                                               penalties[i]])
                     feasible_fit.append(popFitnesses[i])
                     feasible_best_params.append(best_params_population[i])
-            # Find the best solution within feadible individuals
+            # Find the best solution within feasible individuals
             if (len(feasible_solution) != 0):
                 results.append(np.max(feasible_fit))
                 indexes_mask.append(
