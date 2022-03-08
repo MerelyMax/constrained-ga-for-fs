@@ -1,8 +1,9 @@
-# Feature selection using constrained genetic algorithm
-**Important note: this project was build for study purposes.**
+# Feature selection using constrained genetic algorithm 🧬
+**Important note: this project was build for study purposes📚**
 
+## Idea and motivation
 **constrained-ga-for-fs** is a Python module for automated "wrapper" feature selection. The algorithm "wraps" subset of features around a specific model (random forest was implemented so far) and uses prediction accuracy of this subset as a criterion whether to select these features or not. The algorithm was constructed with the following premise:
-> One probably should augment original set of features with some other ones obtained by **feature reduction algorithms** (like PCA, [Autoencoder](https://deepnote.com/@maksim-denisov-c524/Autoencoder-OPTUNA-uN_zBipkSf6xsDR6-1xpVA) and others). Since feature reduction algorithms "sqeeze" the most descriminative information from the data set (descriminative in terms of classification problems), in conjunction with the original data it may probably increase predictive ability (classification accuracy). After this has been done, the best subset of features can be found within the new augmented data. 
+> One probably may consider augmenting original set of features with some other ones obtained by **feature reduction algorithms** (like PCA, [Autoencoder](https://deepnote.com/@maksim-denisov-c524/Autoencoder-OPTUNA-uN_zBipkSf6xsDR6-1xpVA) and others). Since feature reduction algorithms "sqeeze" the most descriminative information from the data set (descriminative in terms of classification problems), in conjunction with the original data it may probably increase predictive ability (classification accuracy). After this has been done, the best subset of features can be found within the new augmented data. 
  
 Taking into account this assumption, the genetic algorithm has two constraints:
 1) The subset must have from 2 to 4 features from the original data;
@@ -22,16 +23,20 @@ Basic idea of the "wrapper" feature selection algorithm is presented on the figu
 2. *Crossover:* optional to choose 'OnePoint', 'TwoPoints' crossover or 'Uniform'.
 3. *Mutation:* the gene to mutate is being selected randomly according to mutation probability.
 4. *Evaluation*: All feasible solutions are collected to find the best one in the end.
-Repeat 0-4 until convergence.
 
-Genetic algorithm procedure to select features is depicted below:
-![image](doc/GA_scheme.png)
-[Image created by author]
+Repeat 0-4 until convergence.
 
 **References**
 1.  Barbosa H. J. C., Lemonge A. C. C. An adaptive penalty method for genetic algorithms in constrained optimization problems. *Frontiers in Evolutionary Robotics.* 2008. Doi: 10.5772/5446.
-# Install
 
+### Genetic algorithm procedure to select features is depicted below:
+![image](doc/GA_scheme.png)
+[Image created by author]
+
+# Install
+```python
+pip install git+https://github.com/MerelyMax/constrained-ga-for-fs.git#egg=constrained-ga-for-fs
+```
 # Example
 
 ## Attention
