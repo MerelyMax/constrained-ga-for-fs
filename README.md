@@ -88,5 +88,5 @@ if __name__ == '__main__':
     print('')
     print(f'Passed time: {round((finish-start)/60, 4)}, min')
 ```
-## Attention
+## Please note
 Above example took .. min to finish calculations with sklearn n_jobs=-1 (processors: 8, RAM: 16 GB, system: macOS). More powerful systems will operate faster, less powerful slower.
