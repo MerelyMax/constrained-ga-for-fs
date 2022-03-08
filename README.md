@@ -15,12 +15,13 @@ Basic idea of the "wrapper" feature selection algorithm is presented on the figu
 0. *Population initialization*: each individual in the population is an array of the form - [0,0,0,1,0,1,...,1], where 1 means feature is chosen, 0 otherwise.
 1. *Selection*
       1. Fitness evaluation: fitness function is the Random Forest algorithm with hyperparameter search by [Hyperopt](https://github.com/hyperopt/hyperopt). Fitness function is calculated for each individual in the population and returns the measure of the classification accuracy - `f1_macro` score.
-      2. Adaptive penalty: As it was described earlier `constrained-ga-for-fs` module has two constraints. If the individual (subset of features) violates these constraints, then adaptive penalty is imposed as it is described in the paper [1] (see **References** section below). 
-2. *Crossover:*
-3. *Mutation:*
-4. *Evaluation*: All feasible solutions are collected to find the best one.
+      2. Adaptive penalty: as it was described earlier `constrained-ga-for-fs` module has two constraints. If the individual (subset of features) violates these constraints, then adaptive penalty is imposed as it is described in the paper [1] (see **References** section below). 
+2. *Crossover:* optional to choose 'OnePoint', 'TwoPoints' crossover or 'Uniform'.
+3. *Mutation:* the gene to mutate is being selected randomly according to mutation probability.
+4. *Evaluation*: All feasible solutions are collected to find the best one in the end.
 Repeat 0-4 until convergence.
 
+Genetic algorithm procedure to select features is depicted below:
 ![image](doc/GA_scheme.png)
 [Image created by author]
 
