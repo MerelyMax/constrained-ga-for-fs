@@ -207,8 +207,8 @@ class GeneticAlgorithm(object):
             # Choose features according to the mask
             X_selected = X[:, np.array(individual, dtype=bool)]
             # Hyperparameters of the Random Forest classifier to adjust by Hyperopt
-            tree_space = {'n_estimators' : hp.choice('n_estimators', np.arange(100, 400, 100)),
-                          'max_depth' : hp.choice('max_depth', np.arange(0.1, 0.6, 0.1))}
+            tree_space = {'n_estimators' : hp.choice('n_estimators', [100, 200, 300]),
+                            'max_depth': hp.quniform('max_depth', 5, 25, 5)}
             trials = Trials()
 
             def objective(params):
@@ -238,15 +238,14 @@ class GeneticAlgorithm(object):
         phi = [phi1, phi2, phi3, phi4]
 
         if (verbose == True):
-            print('Current cv type: ', type(cv))
+            print(f'Current cv type: {type(cv)}')
             print(30*'-')
-            print("Epoch = ", epoch)
-            print("Individual: ", individual)
-            print(f"All features (sum) {individual_sum} = constructed ({extraFeatures}) + original ({originalFeatures})")
-            print("phi1 = %i, phi2 = %i, phi3 = %i, phi4 = %i:" %
-                  (phi1, phi2, phi3, phi4))
-            print("Objective function value = ", scores_mean)
-            print('Best hyperparams found', best_params)
+            print(f'Epoch = {epoch}')
+            print(f'Individual: {individual}')
+            print(f'All features (sum) {individual_sum} = constructed ({extraFeatures}) + original ({originalFeatures})')
+            print(f'phi1 = {phi1}, phi2 = {phi2}, phi3 = {phi3}, phi4 = {phi4}')
+            print(f'Objective function value = {scores_mean}')
+            print(f'Best hyperparams found {best_params}')
             print('')
 
         return scores_mean, phi, best_params
