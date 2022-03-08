@@ -95,16 +95,15 @@ class GeneticAlgorithm(object):
 
     def createPopulation(self, n_population, chromosomeLength, initType, num_features_to_init=None):
         "return matrix with population"
-
+        population = []
         if (initType == 'coin'):
             # use binomial distribution
             population = np.random.binomial(
                 1, 0.5, size = chromosomeLength * n_population)
             population = population.reshape(n_population, chromosomeLength)
+            return population
 
         if (initType == 'uniform_fixed_fnum'):
-            population = np.zeros((n_population, chromosomeLength))
-            chromosome_indexes = np.arange(chromosomeLength)
             
             # if (num_features_to_init != None):
                 # for k in range(n_population):
@@ -116,21 +115,30 @@ class GeneticAlgorithm(object):
                 #     population[k] = np.isin(
                 #         chromosome_indexes, genes, assume_unique=True)*1
             # else:
-            for k in range(n_population):
-                # use uniform distribution
-                genes = np.random.choice(chromosome_indexes,
+            # if num_features_to_init == None:
+            #     raiseExceptions("You should pass 'num_features_to_init' to the constructor")
+            # else:
+            if num_features_to_init == None:
+                print('')
+                print("You should pass 'num_features_to_init' to the constructor")
+                print('')
+                return None
+            else:
+                population = np.zeros((n_population, chromosomeLength))
+                chromosome_indexes = np.arange(chromosomeLength)
+                for k in range(n_population):
+                    # use uniform distribution
+                    genes = np.random.choice(chromosome_indexes,
                                            num_features_to_init,
                                            replace = False)
-                # Если без повторения, то зачем искать unique?
-                # genes = np.unique(samples)
-                population[k] = np.isin(
-                    chromosome_indexes, genes, assume_unique=True)*1
-        else:
-            population = []
-        return population
+                    # Если без повторения, то зачем искать unique?
+                    # genes = np.unique(samples)
+                    population[k] = np.isin(
+                        chromosome_indexes, genes, assume_unique=True)*1
+            return population
 
     def selectionTNT(self, tntSize, n_population, fitnessValues):
-        "return pair of parent indexes"
+        "Tournament selection. Returns pair of parent indexes"
         # generate T random indexes without replacement
         indexes = np.random.choice(
             range(n_population), size=tntSize, replace=False)
