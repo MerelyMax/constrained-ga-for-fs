@@ -88,5 +88,5 @@ if __name__ == '__main__':
     print('')
     print(f'Passed time: {round((finish-start)/60, 4)}, min')
 ```
-## Attention
-Above example took .. min to finish calculations with sklearn n_jobs=-1 (processors: 8, RAM: 16 GB, system: macOS). More powerful systems will operate faster, less powerful slower.
+## Please note:
+Above example took 1 hour 6 minutes to complete calculations with sklearn n_jobs=-1 (processors: 8, RAM: 16 GB, system: macOS). More powerful systems will operate faster, less powerful slower. The dataset has the shape of (569, 30). More features and objects, obviously, will increase computational time. Also note that a genetic algorithm is a heuristic algorithm. That means the more iterations (generations) it performs and the more options (individuals in the population) it has, the more accurate optimal solution will be. Therefore, the tradeoff between computational time and accuracy should be taken into account.
